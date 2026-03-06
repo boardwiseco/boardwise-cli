@@ -1,0 +1,45 @@
+version: 2
+
+project_name: bw
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - binary: bw
+    ldflags:
+      - -s -w -X github.com/boardwise/cli/cmd.Version={{.Version}}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: "bw_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: "bw_{{ .Version }}_checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
