@@ -31,21 +31,38 @@ func useServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 // captureStdout runs fn and returns what it wrote to standard output.
 func captureStdout(t *testing.T, fn func() error) (string, error) {
 	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
+	stdout, _, err := captureOutput(t, fn)
+	return stdout, err
+}
+
+// captureOutput runs fn and returns what it wrote to standard output and
+// standard error.
+func captureOutput(t *testing.T, fn func() error) (stdout, stderr string, err error) {
+	t.Helper()
+	outR, outW, perr := os.Pipe()
+	if perr != nil {
+		t.Fatal(perr)
 	}
-	old := os.Stdout
-	os.Stdout = w
+	errR, errW, perr := os.Pipe()
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	oldOut, oldErr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = outW, errW
 
-	done := make(chan string)
-	go func() {
-		b, _ := io.ReadAll(r)
-		done <- string(b)
-	}()
+	read := func(r *os.File) chan string {
+		done := make(chan string)
+		go func() {
+			b, _ := io.ReadAll(r)
+			done <- string(b)
+		}()
+		return done
+	}
+	outDone, errDone := read(outR), read(errR)
 
-	runErr := fn()
-	os.Stdout = old
-	w.Close()
-	return <-done, runErr
+	err = fn()
+	os.Stdout, os.Stderr = oldOut, oldErr
+	outW.Close()
+	errW.Close()
+	return <-outDone, <-errDone, err
 }
