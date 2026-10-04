@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `bw login` collects its token from the standard OAuth token endpoint, `POST /api/v1/auth/token` (device-code grant), which replaces `/api/v1/auth/device/token`. It reads the RFC 6749 `error` code rather than the HTTP status, and honours `slow_down`.
+
+### Fixed
+
+- `bw superadmin system` and `bw superadmin orgs get` printed a literal `%v` instead of the counts.
+
 ## [0.1.0] - 2026-03-06
 
 ### Added
