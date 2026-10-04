@@ -79,19 +79,20 @@ var tasksCreateCmd = &cobra.Command{
 			return err
 		}
 
-		body := map[string]any{
+		item := map[string]any{
 			"title": taskTitle,
 		}
 		if taskDueBy != "" {
-			body["due_by"] = taskDueBy
+			item["due_by"] = taskDueBy
 		}
 		if taskGroupID != "" {
-			body["group_id"] = taskGroupID
+			item["group_id"] = taskGroupID
 		}
 		if len(taskAssign) > 0 {
-			body["assigned_person_ids"] = taskAssign
+			item["assigned_person_ids"] = taskAssign
 		}
 
+		body := map[string]any{"action_item": item}
 		path := api.BuildPath(orgSlug, "/action_items.json")
 
 		if jsonOut {

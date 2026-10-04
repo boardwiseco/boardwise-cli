@@ -111,9 +111,11 @@ var messagesSendCmd = &cobra.Command{
 		groupSlug := args[0]
 		path := api.BuildPath(orgSlug, "/groups/"+groupSlug+"/messages.json")
 
-		body := map[string]string{
-			"subject": msgSubject,
-			"body":    msgBody,
+		body := map[string]any{
+			"message": map[string]string{
+				"subject": msgSubject,
+				"body":    msgBody,
+			},
 		}
 
 		if jsonOut {

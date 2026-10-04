@@ -156,21 +156,22 @@ var meetingsCreateCmd = &cobra.Command{
 			return err
 		}
 
-		body := map[string]any{
+		meeting := map[string]any{
 			"title":     meetingTitle,
 			"starts_at": meetingStartsAt,
 			"ends_at":   meetingEndsAt,
 		}
 		if meetingGroupID != "" {
-			body["group_id"] = meetingGroupID
+			meeting["group_id"] = meetingGroupID
 		}
 		if meetingLocation != "" {
-			body["location"] = meetingLocation
+			meeting["location"] = meetingLocation
 		}
 		if meetingTimeZone != "" {
-			body["time_zone"] = meetingTimeZone
+			meeting["time_zone"] = meetingTimeZone
 		}
 
+		body := map[string]any{"meeting": meeting}
 		path := api.BuildPath(orgSlug, "/meetings.json")
 
 		if jsonOut {
