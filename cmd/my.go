@@ -236,7 +236,12 @@ var myConsentsCmd = &cobra.Command{
 
 		var result struct {
 			ConsentPackets []struct {
-				Title string `json:"title"`
+				URL           string `json:"url"`
+				ConsentPacket struct {
+					Title            string `json:"title"`
+					DueBy            string `json:"due_by"`
+					OrganizationName string `json:"organization_name"`
+				} `json:"consent_packet"`
 			} `json:"consent_packets"`
 		}
 		if err := client.Get("/my/consents.json", &result); err != nil {
@@ -247,9 +252,13 @@ var myConsentsCmd = &cobra.Command{
 			fmt.Println("No pending consents.")
 			return nil
 		}
+
+		w := newTabWriter()
+		fmt.Fprintln(w, "TITLE\tDUE\tORG\tSIGN AT")
 		for _, c := range result.ConsentPackets {
-			fmt.Printf("• %s\n", c.Title)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ConsentPacket.Title, c.ConsentPacket.DueBy, c.ConsentPacket.OrganizationName, c.URL)
 		}
+		w.Flush()
 		return nil
 	},
 }
@@ -269,7 +278,12 @@ var myDeclarationsCmd = &cobra.Command{
 
 		var result struct {
 			Declarations []struct {
-				Title string `json:"title"`
+				URL         string `json:"url"`
+				Declaration struct {
+					Title            string `json:"title"`
+					DueBy            string `json:"due_by"`
+					OrganizationName string `json:"organization_name"`
+				} `json:"declaration"`
 			} `json:"declarations"`
 		}
 		if err := client.Get("/my/declarations.json", &result); err != nil {
@@ -280,9 +294,13 @@ var myDeclarationsCmd = &cobra.Command{
 			fmt.Println("No pending declarations.")
 			return nil
 		}
+
+		w := newTabWriter()
+		fmt.Fprintln(w, "TITLE\tDUE\tORG\tCOMPLETE AT")
 		for _, d := range result.Declarations {
-			fmt.Printf("• %s\n", d.Title)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.Declaration.Title, d.Declaration.DueBy, d.Declaration.OrganizationName, d.URL)
 		}
+		w.Flush()
 		return nil
 	},
 }
@@ -302,7 +320,11 @@ var mySurveysCmd = &cobra.Command{
 
 		var result struct {
 			Surveys []struct {
-				Title string `json:"title"`
+				Survey struct {
+					Title            string `json:"title"`
+					DueBy            string `json:"due_by"`
+					OrganizationName string `json:"organization_name"`
+				} `json:"survey"`
 			} `json:"surveys"`
 		}
 		if err := client.Get("/my/surveys.json", &result); err != nil {
@@ -313,9 +335,13 @@ var mySurveysCmd = &cobra.Command{
 			fmt.Println("No pending surveys.")
 			return nil
 		}
+
+		w := newTabWriter()
+		fmt.Fprintln(w, "TITLE\tDUE\tORG")
 		for _, s := range result.Surveys {
-			fmt.Printf("• %s\n", s.Title)
+			fmt.Fprintf(w, "%s\t%s\t%s\n", s.Survey.Title, s.Survey.DueBy, s.Survey.OrganizationName)
 		}
+		w.Flush()
 		return nil
 	},
 }

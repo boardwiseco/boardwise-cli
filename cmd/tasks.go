@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/boardwise/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -37,22 +38,26 @@ var tasksListCmd = &cobra.Command{
 		}
 
 		var result []struct {
-			ID   any    `json:"id"`
-			Title   string `json:"title"`
-			DueBy   string `json:"due_by"`
-			Status  string `json:"status"`
-			Assigned []struct {
+			ID        any    `json:"id"`
+			Title     string `json:"title"`
+			DueBy     string `json:"due_by"`
+			Status    string `json:"status"`
+			Assignees []struct {
 				Name string `json:"name"`
-			} `json:"assigned"`
+			} `json:"assignees"`
 		}
 		if err := client.Get(path, &result); err != nil {
 			return err
 		}
 
 		w := newTabWriter()
-		fmt.Fprintln(w, "ID\tTITLE\tDUE\tSTATUS")
+		fmt.Fprintln(w, "ID\tTITLE\tDUE\tSTATUS\tASSIGNEES")
 		for _, t := range result {
-			fmt.Fprintf(w, "%v\t%s\t%s\t%s\n", t.ID, t.Title, t.DueBy, t.Status)
+			names := make([]string, len(t.Assignees))
+			for i, a := range t.Assignees {
+				names[i] = a.Name
+			}
+			fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n", t.ID, t.Title, t.DueBy, t.Status, strings.Join(names, ", "))
 		}
 		w.Flush()
 		return nil
@@ -99,7 +104,7 @@ var tasksCreateCmd = &cobra.Command{
 		}
 
 		var result struct {
-			ID   any    `json:"id"`
+			ID    any    `json:"id"`
 			Title string `json:"title"`
 		}
 		if err := client.Post(path, body, &result); err != nil {
