@@ -81,7 +81,7 @@ var superadminOrgsGetCmd = &cobra.Command{
 		fmt.Printf("Name:    %s\n", o.Name)
 		fmt.Printf("Slug:    %s\n", o.Slug)
 		fmt.Printf("Created: %s\n", o.CreatedAt)
-		fmt.Printf("People:  %%v\n", o.PeopleCount)
+		fmt.Printf("People:  %v\n", o.PeopleCount)
 		return nil
 	},
 }
@@ -148,9 +148,9 @@ var superadminSystemCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Database size: %s\n", s.Database.Size)
-		fmt.Printf("Jobs queued:   %%v\n", s.Jobs.Queued)
-		fmt.Printf("Jobs running:  %%v\n", s.Jobs.Running)
-		fmt.Printf("Jobs failed:   %%v\n", s.Jobs.Failed)
+		fmt.Printf("Jobs queued:   %v\n", s.Jobs.Queued)
+		fmt.Printf("Jobs running:  %v\n", s.Jobs.Running)
+		fmt.Printf("Jobs failed:   %v\n", s.Jobs.Failed)
 		return nil
 	},
 }

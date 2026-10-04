@@ -37,6 +37,18 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Body)
 }
 
+// Code returns the machine-readable "error" field of a Boardwise error body
+// ({"error": "...", "message": "..."}), or "" when the body has none.
+func (e *APIError) Code() string {
+	var body struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal([]byte(e.Body), &body) != nil {
+		return ""
+	}
+	return body.Error
+}
+
 func (c *Client) do(method, path string, body any) (*http.Response, error) {
 	var bodyReader io.Reader
 	if body != nil {
