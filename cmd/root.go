@@ -52,11 +52,6 @@ func Execute() {
 	}
 	client = api.NewClient(baseURL, cfg.Token)
 
-	// Unhide superadmin commands if the user is a superadmin
-	if cfg.Superadmin {
-		superadminCmd.Hidden = false
-	}
-
 	// Set default org from config if not provided via flag
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if cmd.Annotations["skipAuth"] == "true" {
@@ -92,7 +87,6 @@ func init() {
 	rootCmd.AddCommand(docsCmd)
 	rootCmd.AddCommand(messagesCmd)
 	rootCmd.AddCommand(myCmd)
-	rootCmd.AddCommand(superadminCmd)
 }
 
 // requireOrg validates that --org is set for org-scoped commands.

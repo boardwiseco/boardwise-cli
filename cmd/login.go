@@ -55,7 +55,6 @@ var loginCmd = &cobra.Command{
 			Email         string `json:"email"`
 			GivenName     string `json:"given_name"`
 			FamilyName    string `json:"family_name"`
-			Superadmin    bool   `json:"superadmin"`
 			Organizations []struct {
 				Name string `json:"name"`
 				Slug string `json:"slug"`
@@ -66,7 +65,6 @@ var loginCmd = &cobra.Command{
 		}
 
 		cfg.Token = accessToken
-		cfg.Superadmin = me.Superadmin
 		cfg.URL = baseURL
 
 		// Auto-set default org if user only belongs to one
@@ -79,9 +77,6 @@ var loginCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\nLogged in as %s %s (%s)\n", me.GivenName, me.FamilyName, me.Email)
-		if me.Superadmin {
-			fmt.Println("Superadmin commands are now available.")
-		}
 		if cfg.DefaultOrg != "" {
 			fmt.Printf("Default org set to: %s\n", cfg.DefaultOrg)
 		} else if len(me.Organizations) > 1 {
