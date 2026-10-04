@@ -23,19 +23,7 @@ var tasksListCmd = &cobra.Command{
 			return err
 		}
 
-		path := api.BuildPath(orgSlug, "/action_items.json")
-		if tasksListStatus != "" {
-			path += "?status=" + tasksListStatus
-		}
-
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
-		}
+		path := withQuery(api.BuildPath(orgSlug, "/action_items.json"), map[string]string{"status": tasksListStatus})
 
 		var result []struct {
 			ID        any    `json:"id"`
@@ -46,7 +34,7 @@ var tasksListCmd = &cobra.Command{
 				Name string `json:"name"`
 			} `json:"assignees"`
 		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "", &result); err != nil || printed {
 			return err
 		}
 

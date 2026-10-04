@@ -22,29 +22,18 @@ var peopleListCmd = &cobra.Command{
 
 		path := api.BuildPath(orgSlug, "/people.json")
 
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var people []struct {
+			Name      string `json:"name"`
+			Email     string `json:"email"`
+			RoleLevel string `json:"role_level"`
 		}
-
-		var result struct {
-			People []struct {
-				Name      string `json:"name"`
-				Email     string `json:"email"`
-				RoleLevel string `json:"role_level"`
-			} `json:"people"`
-		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "people", &people); err != nil || printed {
 			return err
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "NAME\tEMAIL\tROLE")
-		for _, p := range result.People {
+		for _, p := range people {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", p.Name, p.Email, p.RoleLevel)
 		}
 		w.Flush()
