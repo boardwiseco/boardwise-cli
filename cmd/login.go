@@ -25,9 +25,7 @@ var loginCmd = &cobra.Command{
 			ExpiresIn       int    `json:"expires_in"`
 			Interval        int    `json:"interval"`
 		}
-		if err := unauthClient.Post("/api/v1/auth/device", map[string]string{
-			"client_name": "Boardwise CLI",
-		}, &deviceResp); err != nil {
+		if err := unauthClient.Post("/api/v1/auth/device", deviceRequest(loginReadOnly, orgSlug), &deviceResp); err != nil {
 			return fmt.Errorf("failed to start device authorization: %w", err)
 		}
 
@@ -67,8 +65,11 @@ var loginCmd = &cobra.Command{
 		cfg.Token = accessToken
 		cfg.URL = baseURL
 
-		// Auto-set default org if user only belongs to one
-		if len(me.Organizations) == 1 {
+		// A token bound with --org makes that org the default; otherwise
+		// auto-set it if the user only belongs to one.
+		if orgSlug != "" {
+			cfg.DefaultOrg = orgSlug
+		} else if len(me.Organizations) == 1 {
 			cfg.DefaultOrg = me.Organizations[0].Slug
 		}
 
@@ -77,6 +78,12 @@ var loginCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\nLogged in as %s %s (%s)\n", me.GivenName, me.FamilyName, me.Email)
+		if loginReadOnly {
+			fmt.Println("This token is read-only: it can view but not change anything.")
+		}
+		if orgSlug != "" {
+			fmt.Printf("This token is limited to organization %s; the bw my commands, which span organizations, are refused for it.\n", orgSlug)
+		}
 		if cfg.DefaultOrg != "" {
 			fmt.Printf("Default org set to: %s\n", cfg.DefaultOrg)
 		} else if len(me.Organizations) > 1 {
@@ -90,6 +97,27 @@ var loginCmd = &cobra.Command{
 		os.Exit(0)
 		return nil
 	},
+}
+
+var loginReadOnly bool
+
+func init() {
+	loginCmd.Flags().BoolVar(&loginReadOnly, "read-only", false, "ask for a read-only token (it can view but not change anything)")
+	// --org is the global flag: on login it limits the token to that
+	// organization and makes it the default.
+}
+
+// deviceRequest is the body that starts the device flow. A read-only
+// request asks for scope "read"; an organization binds the token to it.
+func deviceRequest(readOnly bool, org string) map[string]string {
+	body := map[string]string{"client_name": "Boardwise CLI"}
+	if readOnly {
+		body["scope"] = "read"
+	}
+	if org != "" {
+		body["organization_slug"] = org
+	}
+	return body
 }
 
 // deviceCodeGrant is the OAuth grant type for collecting a device-flow token
