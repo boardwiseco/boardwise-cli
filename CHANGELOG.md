@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-05
+
 ### Added
 
 - `bw login --read-only` asks for a token that can view but not change anything.
@@ -53,5 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--org` flag and stored default org for organization-scoped commands
 - `--url` flag and `BW_API_URL` environment variable for targeting non-production servers
 
-[Unreleased]: https://github.com/boardwiseco/boardwise-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/boardwiseco/boardwise-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/boardwiseco/boardwise-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/boardwiseco/boardwise-cli/releases/tag/v0.1.0
