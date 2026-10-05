@@ -61,9 +61,13 @@ The `--org` flag accepts the numeric organization slug shown in the Boardwise UR
 | Command | Description |
 |---------|-------------|
 | `bw login` | Authenticate via browser device authorization |
-| `bw logout` | Clear stored credentials |
+| `bw login --read-only` | Ask for a token that can view but not change anything |
+| `bw login --org <slug>` | Ask for a token limited to one organization (also makes it the default) |
+| `bw logout` | Revoke the token on the server and clear stored credentials |
 | `bw me` | Show current user and organizations |
 | `bw version` | Show CLI version |
+
+A token limited with `--org` is refused by the `bw my` commands, which span all your organizations. You can see and revoke your tokens on the API tokens page in Boardwise (`/my/api_tokens`). If `bw logout` can't reach the server, it still clears your local credentials and tells you to revoke the token there.
 
 ### Boards & Committees
 
@@ -79,15 +83,15 @@ The `--org` flag accepts the numeric organization slug shown in the Boardwise UR
 | `bw meetings list` | List meetings (`--status upcoming\|past\|all`) |
 | `bw meetings get <id>` | Get agenda, attendees, and documents |
 | `bw meetings create` | Create a meeting (`--title`, `--starts-at`, `--ends-at` required) |
-| `bw agenda add <meeting-id>` | Add an agenda item (`--title`, `--duration` required) |
+| `bw agenda add <meeting-id>` | Add an agenda item to the end of the agenda (`--title`, `--duration` required) |
 
 ### People & Tasks
 
 | Command | Description |
 |---------|-------------|
 | `bw people list` | List active people in the organization |
-| `bw tasks list` | List action items (`--status pending\|completed\|all`) |
-| `bw tasks create` | Create an action item (`--title` required) |
+| `bw tasks list` | List action items with their assignees (`--status pending\|completed\|all`) |
+| `bw tasks create` | Create an action item (`--title` required; `--assign <person-id>`, repeatable) |
 
 ### Documents & Messages
 
@@ -100,7 +104,7 @@ The `--org` flag accepts the numeric organization slug shown in the Boardwise UR
 
 ### Personal Dashboard
 
-These commands work across all your organizations.
+These commands work across all your organizations. Signing a consent or completing a declaration needs a passkey in the browser, so the CLI lists them with a link rather than doing it.
 
 | Command | Description |
 |---------|-------------|
@@ -110,8 +114,8 @@ These commands work across all your organizations.
 | `bw my messages` | Unread messages |
 | `bw my notifications` | Unread notifications |
 | `bw my notifications mark-read` | Mark all notifications as read |
-| `bw my consents` | Consent packets awaiting your signature |
-| `bw my declarations` | Declarations awaiting your response |
+| `bw my consents` | Consent packets awaiting your signature, with the page to sign them on |
+| `bw my declarations` | Declarations awaiting your response, with the page to complete them on |
 | `bw my surveys` | Surveys awaiting your response |
 
 ## Global Flags
@@ -119,7 +123,7 @@ These commands work across all your organizations.
 | Flag | Description |
 |------|-------------|
 | `-o, --org <slug>` | Organization slug (saved after login if you only have one org) |
-| `--json` | Output raw JSON — useful for scripting |
+| `--json` | Output JSON — useful for scripting. Lists include every page, in the API's own shape |
 | `--url <url>` | API base URL (default: `https://app.boardwise.co`) |
 
 The `--url` flag and `BW_API_URL` environment variable are useful for targeting a local development server:
@@ -127,6 +131,8 @@ The `--url` flag and `BW_API_URL` environment variable are useful for targeting 
 ```bash
 BW_API_URL=http://boardwise.test bw login
 ```
+
+List commands read every page of results (100 at a time). If the server says too many requests have been made, the CLI waits as long as it asks (up to a minute) and tries once more.
 
 ## Shell Completion
 

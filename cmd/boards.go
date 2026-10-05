@@ -22,29 +22,18 @@ var boardsListCmd = &cobra.Command{
 
 		path := api.BuildPath(orgSlug, "/groups.json")
 
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var groups []struct {
+			Name        string `json:"name"`
+			Type        string `json:"type"`
+			MemberCount int    `json:"member_count"`
 		}
-
-		var result struct {
-			Groups []struct {
-				Name        string `json:"name"`
-				Type        string `json:"type"`
-				MemberCount int    `json:"member_count"`
-			} `json:"groups"`
-		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "groups", &groups); err != nil || printed {
 			return err
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "NAME\tTYPE\tMEMBERS")
-		for _, g := range result.Groups {
+		for _, g := range groups {
 			fmt.Fprintf(w, "%s\t%s\t%d\n", g.Name, g.Type, g.MemberCount)
 		}
 		w.Flush()

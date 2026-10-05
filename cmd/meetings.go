@@ -23,35 +23,21 @@ var meetingsListCmd = &cobra.Command{
 			return err
 		}
 
-		path := api.BuildPath(orgSlug, "/meetings.json")
-		if meetingsListStatus != "" {
-			path += "?status=" + meetingsListStatus
-		}
+		path := withQuery(api.BuildPath(orgSlug, "/meetings.json"), map[string]string{"status": meetingsListStatus})
 
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var meetings []struct {
+			Title           string `json:"title"`
+			StartsAt        string `json:"starts_at"`
+			VisibilityState string `json:"visibility_state"`
+			GroupName       string `json:"group_name"`
 		}
-
-		var result struct {
-			Meetings []struct {
-				Title           string `json:"title"`
-				StartsAt        string `json:"starts_at"`
-				VisibilityState string `json:"visibility_state"`
-				GroupName       string `json:"group_name"`
-			} `json:"meetings"`
-		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "meetings", &meetings); err != nil || printed {
 			return err
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "TITLE\tSTARTS AT\tSTATUS\tBOARD")
-		for _, m := range result.Meetings {
+		for _, m := range meetings {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.Title, m.StartsAt, m.VisibilityState, m.GroupName)
 		}
 		w.Flush()
@@ -156,21 +142,22 @@ var meetingsCreateCmd = &cobra.Command{
 			return err
 		}
 
-		body := map[string]any{
+		meeting := map[string]any{
 			"title":     meetingTitle,
 			"starts_at": meetingStartsAt,
 			"ends_at":   meetingEndsAt,
 		}
 		if meetingGroupID != "" {
-			body["group_id"] = meetingGroupID
+			meeting["group_id"] = meetingGroupID
 		}
 		if meetingLocation != "" {
-			body["location"] = meetingLocation
+			meeting["location"] = meetingLocation
 		}
 		if meetingTimeZone != "" {
-			body["time_zone"] = meetingTimeZone
+			meeting["time_zone"] = meetingTimeZone
 		}
 
+		body := map[string]any{"meeting": meeting}
 		path := api.BuildPath(orgSlug, "/meetings.json")
 
 		if jsonOut {

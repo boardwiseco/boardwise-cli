@@ -24,33 +24,22 @@ var messagesListCmd = &cobra.Command{
 		groupSlug := args[0]
 		path := api.BuildPath(orgSlug, "/groups/"+groupSlug+"/messages.json")
 
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var messages []struct {
+			Subject   string `json:"subject"`
+			CreatedAt string `json:"created_at"`
 		}
-
-		var result struct {
-			Messages []struct {
-				Subject   string `json:"subject"`
-				CreatedAt string `json:"created_at"`
-			} `json:"messages"`
-		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "messages", &messages); err != nil || printed {
 			return err
 		}
 
-		if len(result.Messages) == 0 {
+		if len(messages) == 0 {
 			fmt.Println("No messages.")
 			return nil
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "SUBJECT\tDATE")
-		for _, m := range result.Messages {
+		for _, m := range messages {
 			fmt.Fprintf(w, "%s\t%s\n", m.Subject, m.CreatedAt)
 		}
 		w.Flush()
@@ -111,9 +100,11 @@ var messagesSendCmd = &cobra.Command{
 		groupSlug := args[0]
 		path := api.BuildPath(orgSlug, "/groups/"+groupSlug+"/messages.json")
 
-		body := map[string]string{
-			"subject": msgSubject,
-			"body":    msgBody,
+		body := map[string]any{
+			"message": map[string]string{
+				"subject": msgSubject,
+				"body":    msgBody,
+			},
 		}
 
 		if jsonOut {

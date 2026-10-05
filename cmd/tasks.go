@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/boardwise/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -22,37 +23,29 @@ var tasksListCmd = &cobra.Command{
 			return err
 		}
 
-		path := api.BuildPath(orgSlug, "/action_items.json")
-		if tasksListStatus != "" {
-			path += "?status=" + tasksListStatus
-		}
-
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
-		}
+		path := withQuery(api.BuildPath(orgSlug, "/action_items.json"), map[string]string{"status": tasksListStatus})
 
 		var result []struct {
-			ID   any    `json:"id"`
-			Title   string `json:"title"`
-			DueBy   string `json:"due_by"`
-			Status  string `json:"status"`
-			Assigned []struct {
+			ID        any    `json:"id"`
+			Title     string `json:"title"`
+			DueBy     string `json:"due_by"`
+			Status    string `json:"status"`
+			Assignees []struct {
 				Name string `json:"name"`
-			} `json:"assigned"`
+			} `json:"assignees"`
 		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "", &result); err != nil || printed {
 			return err
 		}
 
 		w := newTabWriter()
-		fmt.Fprintln(w, "ID\tTITLE\tDUE\tSTATUS")
+		fmt.Fprintln(w, "ID\tTITLE\tDUE\tSTATUS\tASSIGNEES")
 		for _, t := range result {
-			fmt.Fprintf(w, "%v\t%s\t%s\t%s\n", t.ID, t.Title, t.DueBy, t.Status)
+			names := make([]string, len(t.Assignees))
+			for i, a := range t.Assignees {
+				names[i] = a.Name
+			}
+			fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n", t.ID, t.Title, t.DueBy, t.Status, strings.Join(names, ", "))
 		}
 		w.Flush()
 		return nil
@@ -74,19 +67,20 @@ var tasksCreateCmd = &cobra.Command{
 			return err
 		}
 
-		body := map[string]any{
+		item := map[string]any{
 			"title": taskTitle,
 		}
 		if taskDueBy != "" {
-			body["due_by"] = taskDueBy
+			item["due_by"] = taskDueBy
 		}
 		if taskGroupID != "" {
-			body["group_id"] = taskGroupID
+			item["group_id"] = taskGroupID
 		}
 		if len(taskAssign) > 0 {
-			body["assigned_person_ids"] = taskAssign
+			item["assigned_person_ids"] = taskAssign
 		}
 
+		body := map[string]any{"action_item": item}
 		path := api.BuildPath(orgSlug, "/action_items.json")
 
 		if jsonOut {
@@ -99,7 +93,7 @@ var tasksCreateCmd = &cobra.Command{
 		}
 
 		var result struct {
-			ID   any    `json:"id"`
+			ID    any    `json:"id"`
 			Title string `json:"title"`
 		}
 		if err := client.Post(path, body, &result); err != nil {

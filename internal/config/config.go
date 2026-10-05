@@ -9,7 +9,6 @@ import (
 type Config struct {
 	Token      string `json:"token,omitempty"`
 	DefaultOrg string `json:"default_org,omitempty"`
-	Superadmin bool   `json:"superadmin,omitempty"`
 	URL        string `json:"url,omitempty"`
 }
 
@@ -62,7 +61,6 @@ func (c *Config) Save() error {
 func (c *Config) Clear() error {
 	c.Token = ""
 	c.DefaultOrg = ""
-	c.Superadmin = false
 	c.URL = ""
 	return c.Save()
 }

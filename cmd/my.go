@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -15,29 +16,18 @@ var myNotificationsCmd = &cobra.Command{
 	Use:   "notifications",
 	Short: "List your unread notifications",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/notifications.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var notifications []struct {
+			Message string `json:"message"`
 		}
-
-		var result struct {
-			Notifications []struct {
-				Message string `json:"message"`
-			} `json:"notifications"`
-		}
-		if err := client.Get("/my/notifications.json", &result); err != nil {
+		if printed, err := listAll("/my/notifications.json", "notifications", &notifications); err != nil || printed {
 			return err
 		}
 
-		if len(result.Notifications) == 0 {
+		if len(notifications) == 0 {
 			fmt.Println("No unread notifications.")
 			return nil
 		}
-		for _, n := range result.Notifications {
+		for _, n := range notifications {
 			fmt.Printf("• %s\n", n.Message)
 		}
 		return nil
@@ -56,44 +46,67 @@ var myNotificationsMarkReadCmd = &cobra.Command{
 	},
 }
 
+type scheduleMeeting struct {
+	Title            string `json:"title"`
+	StartsAt         string `json:"starts_at"`
+	VisibilityState  string `json:"visibility_state"`
+	OrganizationName string `json:"organization_name"`
+}
+
+// mySchedule reads every page of /my/schedule/list.json. Its two lists page
+// in step, so each page adds to both.
+func mySchedule() (upcoming, past []json.RawMessage, err error) {
+	upcoming, past = []json.RawMessage{}, []json.RawMessage{}
+	err = client.EachPage("/my/schedule/list.json", func(page []byte) error {
+		var body struct {
+			UpcomingMeetings []json.RawMessage `json:"upcoming_meetings"`
+			PastMeetings     []json.RawMessage `json:"past_meetings"`
+		}
+		if err := json.Unmarshal(page, &body); err != nil {
+			return fmt.Errorf("unexpected response from /my/schedule/list.json: %w", err)
+		}
+		upcoming = append(upcoming, body.UpcomingMeetings...)
+		past = append(past, body.PastMeetings...)
+		return nil
+	})
+	return upcoming, past, err
+}
+
 var myScheduleCmd = &cobra.Command{
 	Use:   "schedule",
 	Short: "List your upcoming and past meetings",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/schedule/list.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
-		}
-
-		type meetingRow struct {
-			Title            string `json:"title"`
-			StartsAt         string `json:"starts_at"`
-			VisibilityState  string `json:"visibility_state"`
-			OrganizationName string `json:"organization_name"`
-		}
-		var result struct {
-			UpcomingMeetings []meetingRow `json:"upcoming_meetings"`
-			PastMeetings     []meetingRow `json:"past_meetings"`
-		}
-		if err := client.Get("/my/schedule/list.json", &result); err != nil {
+		upcomingRaw, pastRaw, err := mySchedule()
+		if err != nil {
 			return err
 		}
 
-		if len(result.UpcomingMeetings)+len(result.PastMeetings) == 0 {
+		if jsonOut {
+			return printJSON(map[string]any{"upcoming_meetings": upcomingRaw, "past_meetings": pastRaw})
+		}
+
+		var upcoming, past []scheduleMeeting
+		for _, list := range []struct {
+			raw  []json.RawMessage
+			into *[]scheduleMeeting
+		}{{upcomingRaw, &upcoming}, {pastRaw, &past}} {
+			data, err := json.Marshal(list.raw)
+			if err != nil {
+				return err
+			}
+			if err := json.Unmarshal(data, list.into); err != nil {
+				return err
+			}
+		}
+
+		if len(upcoming)+len(past) == 0 {
 			fmt.Println("No meetings.")
 			return nil
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "TITLE\tSTARTS AT\tSTATUS\tORG")
-		for _, m := range result.UpcomingMeetings {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.Title, m.StartsAt, m.VisibilityState, m.OrganizationName)
-		}
-		for _, m := range result.PastMeetings {
+		for _, m := range append(upcoming, past...) {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", m.Title, m.StartsAt, m.VisibilityState, m.OrganizationName)
 		}
 		w.Flush()
@@ -105,36 +118,25 @@ var myRSVPsCmd = &cobra.Command{
 	Use:   "rsvps",
 	Short: "List meetings with pending RSVPs",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/schedule/pending_rsvps.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var rsvps []struct {
+			Meeting struct {
+				Title            string `json:"title"`
+				StartsAt         string `json:"starts_at"`
+				OrganizationName string `json:"organization_name"`
+			} `json:"meeting"`
 		}
-
-		var result struct {
-			PendingRSVPs []struct {
-				Meeting struct {
-					Title            string `json:"title"`
-					StartsAt         string `json:"starts_at"`
-					OrganizationName string `json:"organization_name"`
-				} `json:"meeting"`
-			} `json:"pending_rsvps"`
-		}
-		if err := client.Get("/my/schedule/pending_rsvps.json", &result); err != nil {
+		if printed, err := listAll("/my/schedule/pending_rsvps.json", "pending_rsvps", &rsvps); err != nil || printed {
 			return err
 		}
 
-		if len(result.PendingRSVPs) == 0 {
+		if len(rsvps) == 0 {
 			fmt.Println("No pending RSVPs.")
 			return nil
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "TITLE\tSTARTS AT\tORG")
-		for _, r := range result.PendingRSVPs {
+		for _, r := range rsvps {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", r.Meeting.Title, r.Meeting.StartsAt, r.Meeting.OrganizationName)
 		}
 		w.Flush()
@@ -146,36 +148,25 @@ var myTasksCmd = &cobra.Command{
 	Use:   "tasks",
 	Short: "List pending tasks assigned to you",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/assignments.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var assignments []struct {
+			ActionItem struct {
+				Title            string `json:"title"`
+				DueBy            string `json:"due_by"`
+				OrganizationName string `json:"organization_name"`
+			} `json:"action_item"`
 		}
-
-		var result struct {
-			Assignments []struct {
-				ActionItem struct {
-					Title            string `json:"title"`
-					DueBy            string `json:"due_by"`
-					OrganizationName string `json:"organization_name"`
-				} `json:"action_item"`
-			} `json:"assignments"`
-		}
-		if err := client.Get("/my/assignments.json", &result); err != nil {
+		if printed, err := listAll("/my/assignments.json", "assignments", &assignments); err != nil || printed {
 			return err
 		}
 
-		if len(result.Assignments) == 0 {
+		if len(assignments) == 0 {
 			fmt.Println("No pending tasks.")
 			return nil
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "TITLE\tDUE\tORG")
-		for _, a := range result.Assignments {
+		for _, a := range assignments {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", a.ActionItem.Title, a.ActionItem.DueBy, a.ActionItem.OrganizationName)
 		}
 		w.Flush()
@@ -187,33 +178,22 @@ var myMessagesCmd = &cobra.Command{
 	Use:   "messages",
 	Short: "List your unread messages",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/messages.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var messages []struct {
+			Subject          string `json:"subject"`
+			OrganizationName string `json:"organization_name"`
 		}
-
-		var result struct {
-			Messages []struct {
-				Subject          string `json:"subject"`
-				OrganizationName string `json:"organization_name"`
-			} `json:"messages"`
-		}
-		if err := client.Get("/my/messages.json", &result); err != nil {
+		if printed, err := listAll("/my/messages.json", "messages", &messages); err != nil || printed {
 			return err
 		}
 
-		if len(result.Messages) == 0 {
+		if len(messages) == 0 {
 			fmt.Println("No unread messages.")
 			return nil
 		}
 
 		w := newTabWriter()
 		fmt.Fprintln(w, "SUBJECT\tORG")
-		for _, m := range result.Messages {
+		for _, m := range messages {
 			fmt.Fprintf(w, "%s\t%s\n", m.Subject, m.OrganizationName)
 		}
 		w.Flush()
@@ -225,31 +205,29 @@ var myConsentsCmd = &cobra.Command{
 	Use:   "consents",
 	Short: "List consent packets awaiting your signature",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/consents.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var consents []struct {
+			URL           string `json:"url"`
+			ConsentPacket struct {
+				Title            string `json:"title"`
+				DueBy            string `json:"due_by"`
+				OrganizationName string `json:"organization_name"`
+			} `json:"consent_packet"`
 		}
-
-		var result struct {
-			ConsentPackets []struct {
-				Title string `json:"title"`
-			} `json:"consent_packets"`
-		}
-		if err := client.Get("/my/consents.json", &result); err != nil {
+		if printed, err := listAll("/my/consents.json", "consent_packets", &consents); err != nil || printed {
 			return err
 		}
 
-		if len(result.ConsentPackets) == 0 {
+		if len(consents) == 0 {
 			fmt.Println("No pending consents.")
 			return nil
 		}
-		for _, c := range result.ConsentPackets {
-			fmt.Printf("• %s\n", c.Title)
+
+		w := newTabWriter()
+		fmt.Fprintln(w, "TITLE\tDUE\tORG\tSIGN AT")
+		for _, c := range consents {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ConsentPacket.Title, c.ConsentPacket.DueBy, c.ConsentPacket.OrganizationName, c.URL)
 		}
+		w.Flush()
 		return nil
 	},
 }
@@ -258,31 +236,29 @@ var myDeclarationsCmd = &cobra.Command{
 	Use:   "declarations",
 	Short: "List declarations awaiting your response",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/declarations.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var declarations []struct {
+			URL         string `json:"url"`
+			Declaration struct {
+				Title            string `json:"title"`
+				DueBy            string `json:"due_by"`
+				OrganizationName string `json:"organization_name"`
+			} `json:"declaration"`
 		}
-
-		var result struct {
-			Declarations []struct {
-				Title string `json:"title"`
-			} `json:"declarations"`
-		}
-		if err := client.Get("/my/declarations.json", &result); err != nil {
+		if printed, err := listAll("/my/declarations.json", "declarations", &declarations); err != nil || printed {
 			return err
 		}
 
-		if len(result.Declarations) == 0 {
+		if len(declarations) == 0 {
 			fmt.Println("No pending declarations.")
 			return nil
 		}
-		for _, d := range result.Declarations {
-			fmt.Printf("• %s\n", d.Title)
+
+		w := newTabWriter()
+		fmt.Fprintln(w, "TITLE\tDUE\tORG\tCOMPLETE AT")
+		for _, d := range declarations {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.Declaration.Title, d.Declaration.DueBy, d.Declaration.OrganizationName, d.URL)
 		}
+		w.Flush()
 		return nil
 	},
 }
@@ -291,31 +267,28 @@ var mySurveysCmd = &cobra.Command{
 	Use:   "surveys",
 	Short: "List surveys awaiting your response",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if jsonOut {
-			raw, err := client.GetRaw("/my/surveys.json")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
+		var surveys []struct {
+			Survey struct {
+				Title            string `json:"title"`
+				DueBy            string `json:"due_by"`
+				OrganizationName string `json:"organization_name"`
+			} `json:"survey"`
 		}
-
-		var result struct {
-			Surveys []struct {
-				Title string `json:"title"`
-			} `json:"surveys"`
-		}
-		if err := client.Get("/my/surveys.json", &result); err != nil {
+		if printed, err := listAll("/my/surveys.json", "surveys", &surveys); err != nil || printed {
 			return err
 		}
 
-		if len(result.Surveys) == 0 {
+		if len(surveys) == 0 {
 			fmt.Println("No pending surveys.")
 			return nil
 		}
-		for _, s := range result.Surveys {
-			fmt.Printf("• %s\n", s.Title)
+
+		w := newTabWriter()
+		fmt.Fprintln(w, "TITLE\tDUE\tORG")
+		for _, s := range surveys {
+			fmt.Fprintf(w, "%s\t%s\t%s\n", s.Survey.Title, s.Survey.DueBy, s.Survey.OrganizationName)
 		}
+		w.Flush()
 		return nil
 	},
 }

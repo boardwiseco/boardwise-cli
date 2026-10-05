@@ -22,27 +22,15 @@ var docsListCmd = &cobra.Command{
 			return err
 		}
 
-		path := api.BuildPath(orgSlug, "/documents.json")
-		if docsGroupID != "" {
-			path += "?group_id=" + docsGroupID
-		}
-
-		if jsonOut {
-			raw, err := client.GetRaw(path)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(raw))
-			return nil
-		}
+		path := withQuery(api.BuildPath(orgSlug, "/documents.json"), map[string]string{"group_id": docsGroupID})
 
 		var result []struct {
-			ID   any    `json:"id"`
+			ID          any    `json:"id"`
 			Name        string `json:"name"`
 			ContentType string `json:"content_type"`
 			CreatedAt   string `json:"created_at"`
 		}
-		if err := client.Get(path, &result); err != nil {
+		if printed, err := listAll(path, "", &result); err != nil || printed {
 			return err
 		}
 

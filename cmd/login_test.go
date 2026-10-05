@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -117,6 +118,24 @@ func TestAPIErrorCode(t *testing.T) {
 	for body, want := range cases {
 		if got := (&api.APIError{StatusCode: 400, Body: body}).Code(); got != want {
 			t.Errorf("Code() for %s = %q, want %q", body, got, want)
+		}
+	}
+}
+
+func TestDeviceRequest(t *testing.T) {
+	cases := []struct {
+		readOnly bool
+		org      string
+		want     map[string]string
+	}{
+		{false, "", map[string]string{"client_name": "Boardwise CLI"}},
+		{true, "", map[string]string{"client_name": "Boardwise CLI", "scope": "read"}},
+		{false, "304923", map[string]string{"client_name": "Boardwise CLI", "organization_slug": "304923"}},
+		{true, "304923", map[string]string{"client_name": "Boardwise CLI", "scope": "read", "organization_slug": "304923"}},
+	}
+	for _, c := range cases {
+		if got := deviceRequest(c.readOnly, c.org); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("deviceRequest(%v, %q) = %v, want %v", c.readOnly, c.org, got, c.want)
 		}
 	}
 }

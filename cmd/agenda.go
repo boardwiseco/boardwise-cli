@@ -16,28 +16,25 @@ var (
 	agendaTitle       string
 	agendaDuration    int
 	agendaDescription string
-	agendaPosition    int
 )
 
 var agendaAddCmd = &cobra.Command{
 	Use:   "add <meeting-id>",
-	Short: "Add an agenda item to a meeting",
+	Short: "Add an agenda item to the end of a meeting's agenda",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := requireOrg(); err != nil {
 			return err
 		}
 
-		body := map[string]any{
+		item := map[string]any{
 			"title":            agendaTitle,
 			"duration_minutes": agendaDuration,
 		}
 		if agendaDescription != "" {
-			body["description"] = agendaDescription
+			item["description"] = agendaDescription
 		}
-		if agendaPosition > 0 {
-			body["position"] = agendaPosition
-		}
+		body := map[string]any{"agenda_item": item}
 
 		path := api.BuildPath(orgSlug, "/meetings/"+args[0]+"/agenda_items.json")
 
@@ -51,7 +48,7 @@ var agendaAddCmd = &cobra.Command{
 		}
 
 		var result struct {
-			ID   any    `json:"id"`
+			ID       any    `json:"id"`
 			Title    string `json:"title"`
 			Position int    `json:"position"`
 		}
@@ -68,7 +65,6 @@ func init() {
 	agendaAddCmd.Flags().StringVar(&agendaTitle, "title", "", "Agenda item title (required)")
 	agendaAddCmd.Flags().IntVar(&agendaDuration, "duration", 0, "Duration in minutes (required)")
 	agendaAddCmd.Flags().StringVar(&agendaDescription, "description", "", "Agenda item description")
-	agendaAddCmd.Flags().IntVar(&agendaPosition, "position", 0, "Position in agenda (auto-assigned if omitted)")
 	agendaAddCmd.MarkFlagRequired("title")
 	agendaAddCmd.MarkFlagRequired("duration")
 

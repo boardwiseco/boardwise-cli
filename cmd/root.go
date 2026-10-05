@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"text/tabwriter"
 
@@ -52,11 +53,6 @@ func Execute() {
 	}
 	client = api.NewClient(baseURL, cfg.Token)
 
-	// Unhide superadmin commands if the user is a superadmin
-	if cfg.Superadmin {
-		superadminCmd.Hidden = false
-	}
-
 	// Set default org from config if not provided via flag
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if cmd.Annotations["skipAuth"] == "true" {
@@ -92,7 +88,6 @@ func init() {
 	rootCmd.AddCommand(docsCmd)
 	rootCmd.AddCommand(messagesCmd)
 	rootCmd.AddCommand(myCmd)
-	rootCmd.AddCommand(superadminCmd)
 }
 
 // requireOrg validates that --org is set for org-scoped commands.
@@ -101,6 +96,64 @@ func requireOrg() error {
 		return fmt.Errorf("--org <slug> is required (or set a default with: bw config set-org <slug>)")
 	}
 	return nil
+}
+
+// withQuery appends the non-empty params to path as a query string.
+func withQuery(path string, params map[string]string) string {
+	query := url.Values{}
+	for name, value := range params {
+		if value != "" {
+			query.Set(name, value)
+		}
+	}
+	if len(query) == 0 {
+		return path
+	}
+	return path + "?" + query.Encode()
+}
+
+// listAll reads every page of a paginated list. key names the field that
+// holds the list in each page ("" when the page is a bare array).
+//
+// With --json it prints every item in the API's own shape ({key: [...]} or
+// [...]) and returns printed=true. Otherwise it decodes the items into
+// items, a pointer to a slice.
+func listAll(path, key string, items any) (printed bool, err error) {
+	all := []json.RawMessage{}
+	err = client.EachPage(path, func(page []byte) error {
+		raw := page
+		if key != "" {
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(page, &body); err != nil {
+				return fmt.Errorf("unexpected response from %s: %w", path, err)
+			}
+			raw = body[key]
+		}
+		var pageItems []json.RawMessage
+		if len(raw) > 0 {
+			if err := json.Unmarshal(raw, &pageItems); err != nil {
+				return fmt.Errorf("unexpected response from %s: %w", path, err)
+			}
+		}
+		all = append(all, pageItems...)
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+
+	if jsonOut {
+		if key == "" {
+			return true, printJSON(all)
+		}
+		return true, printJSON(map[string]any{key: all})
+	}
+
+	data, err := json.Marshal(all)
+	if err != nil {
+		return false, err
+	}
+	return false, json.Unmarshal(data, items)
 }
 
 // printJSON pretty-prints v as JSON.
